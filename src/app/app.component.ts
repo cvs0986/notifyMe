@@ -3,6 +3,15 @@ import { Component, OnInit } from '@angular/core';
 import { Platform } from '@ionic/angular';
 import { SplashScreen } from '@ionic-native/splash-screen/ngx';
 import { StatusBar } from '@ionic-native/status-bar/ngx';
+import {
+  Plugins,
+  PushNotification,
+  PushNotificationToken,
+  PushNotificationActionPerformed
+ } from '@capacitor/core';
+import { AngularFireAuth } from '@angular/fire/auth';
+
+const { PushNotifications, Modals } = Plugins;
 
 @Component({
   selector: 'app-root',
@@ -48,9 +57,17 @@ export class AppComponent implements OnInit {
   constructor(
     private platform: Platform,
     private splashScreen: SplashScreen,
-    private statusBar: StatusBar
+    private statusBar: StatusBar,
+    private afAuth: AngularFireAuth
   ) {
     this.initializeApp();
+    this.onLogin();
+  }
+
+  onLogin() {
+    this.afAuth.auth.signInAnonymously().then(user => {
+      console.log(user.user);
+    })
   }
 
   initializeApp() {
@@ -65,5 +82,51 @@ export class AppComponent implements OnInit {
     if (path !== undefined) {
       this.selectedIndex = this.appPages.findIndex(page => page.title.toLowerCase() === path.toLowerCase());
     }
+
+    console.log('Initializing HomePage');
+
+    // Register with Apple / Google to receive push via APNS/FCM
+    PushNotifications.register();
+
+    // On succcess, we should be able to receive notifications
+    PushNotifications.addListener('registration',
+      (token: PushNotificationToken) => {
+        alert('Push registration success, token: ' + token.value);
+        console.log('Push registration success, token: ' + token.value);
+      }
+    );
+
+    // Some issue with our setup and push will not work
+    PushNotifications.addListener('registrationError',
+      (error: any) => {
+        alert('Error on registration: ' + JSON.stringify(error));
+      }
+    );
+
+    // Show us the notification payload if the app is open on our device
+    PushNotifications.addListener('pushNotificationReceived',
+      (notification: PushNotification) => {
+        var audio1 = new Audio('assets/audio.mp3');
+        console.log('Audio');
+        audio1.play();
+        // alert('Push received: ' + JSON.stringify(notification));
+        console.log('Push received: ', notification);
+
+        let alertRet = Modals.alert({
+          title: notification.title,
+          message: notification.body
+        });
+
+      }
+    );
+
+    // Method called when tapping on a notification
+    PushNotifications.addListener('pushNotificationActionPerformed',
+      (notification: PushNotificationActionPerformed) => {
+        alert('Push action performed: ' + JSON.stringify(notification));
+        console.log('Push action performed: ' + notification);
+      }
+    );
+
   }
 }
